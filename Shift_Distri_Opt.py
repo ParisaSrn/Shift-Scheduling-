@@ -1,4 +1,4 @@
- '''
+'''
 Shift Distribution Model
 
 Advisor: Dr. Baski Balasundaram
@@ -16,8 +16,8 @@ import pandas as pd
 # file = "C:/Users/psahr/Desktop/Shift distribution Model Data.TXT"
 # datafile = "C:/Users/psahr/Desktop/demand_1.csv"
 
-file = "C:/Users/psahr/Desktop/Shift distribution Model Data.TXT"
-datafile = "C:/Users/psahr/Desktop/demand_1.csv"
+file = "data/SDOmodelparam.txt"
+datafile = "data/ATCdemand_1.csv"
 X=np.loadtxt(file, skiprows=2).astype(int)
 R = pd.read_csv(datafile,header=None)
 
@@ -45,7 +45,7 @@ nshifts = modell.addVars(l,range(1,T+1),vtype=GRB.INTEGER, obj=1, name="Number o
 modell.modelSense = GRB.MINIMIZE
 
 #adding costraints
- for k in range(1,T+1):
+for k in range(1,T+1):
         if k>= 1 and k<=d[0]:
                 modell.addConstr(sum(nshifts[a,k-i] for i in range(k) for a in range(shift_types)) >= r[k][0] )
         

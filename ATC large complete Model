@@ -1,0 +1,112 @@
+ '''
+ATC first Model
+
+Advisor: Dr. Baski Balasundaram
+
+Parisa Sahraeian
+
+objective needt to be modified
+I used only one n and m insted of 3
+
+'''
+
+import gurobipy as gp
+from gurobipy import GRB
+import numpy as np
+import pandas as pd
+
+#Importing Data
+# file = "C:/Users/psahr/Desktop/Shift distribution Model Data.TXT"
+# datafile = "C:/Users/psahr/Desktop/demand_1.csv"
+file = "C:/Users/psahr/Desktop/ATC model DATA.TXT"
+datafile = "C:/Users/psahr/Desktop/demand_1.csv"
+X=np.loadtxt(file, skiprows=2).astype(int)
+R = pd.read_csv(datafile,header=None)
+
+#Parameters:
+#Numbre of shift types
+shift_types = X[0,0]
+#d = duration of shift by type
+d = X[1,:]
+#number of time slots 
+T = X[2,0]
+#Getting Time limit in seconds
+tl= X[3,0]
+#number of shifts
+n=X[4,:]
+#number of schedules
+m=X[5,:]
+#Requirements of every time slot
+r = np.array(R)
+#Defining the model
+modell = gp.Model("Shift Distribution Model")
+
+ouv={}
+delta=8
+dl=4
+u=T-3
+dmin=d[0]
+dmax=d[2]
+
+# Decision variable: x[i,l] denote the number of shifts of type l(=1,2,3) that must start in time-slot i.
+for l in range(shift_types):
+    for i in range(1,n[l]+1):
+        for j in range(1,m[l]+1):
+            starttime[l,i,j] = modell.addVar(obj=-1,vtype=GRB.INTEGER, name="Start time ")
+            cmpltime[l,i,j] = modell.addVar(obj=-1 ,vtype=GRB.INTEGER, name="Completion time ")
+            for k in range(1,T+1):
+                z[l,i,j,k] = modell.addVar(vtype=GRB.BINARY, name="Shift i in schedule j that covers time slot k")
+
+for u in range(1,T-dmax+2):
+    for v in range(u+dmin,u+dmax):
+        ouv[u,v] = modell.addVar( vtype=GRB.INTEGER, obj=v-u+1, name="Overtime shift from u to v ")
+
+# We want to minimize the total costs
+modell.modelSense = GRB.MINIMIZE
+
+#adding costraints
+for l in range(shift_types):
+    for i in range(1,n[l]):
+        for j in range(1,m[l]+1):
+            modell.addConstr(starttime[l,i+1,j] >= cmpltime[l,i,j] + delta, name="constraint 5")
+                                 
+
+for l in range(shift_types):
+    for i in range(1,n[l]+1):
+        for j in range(1,m[l]+1):
+            modell.addConstr(cmpltime[l,i,j] - starttime[l,i,j] >= d[l], name="constraint 6")   
+            modell.addConstr(cmpltime[l,i,j] - starttime[l,i,j] <= dmax, name="constraint 7")       
+
+for l in range(shift_types):
+    for j in range(1,m[l]+1):
+        modell.addConstr(cmpltime[l,n[l],j] <=T ,name="constraint 12")  
+
+for l in range(shift_types):
+    for j in range(1,m[l]+1):
+        for k in range(1,T+1):
+            modell.addConstr(sum(z[l,i,j,k] for i in range (1,n[l]+1)) <= 1 ,name="constraint 11") 
+                    
+for l in range(shift_types):
+    for i in range(1,n[l]+1):
+        for j in range(1,m[l]+1):
+            for k in range(1,T+1):
+                modell.addConstr(starttime[l,i,j] <= k*z[l,i,j,k] + (T-(n[l]-i+1)*(d[l]+delta))*(1-z[l,i,j,k]),name="constraint 9")
+                modell.addConstr(cmpltime[l,i,j] >= k*z[l,i,j,k] + i*(d[l]+delta)*(1-z[l,i,j,k]),name="constraint 10")
+                   
+for k in range(1,T+1):
+    #s = LinExpr(0)
+    for l in range(shift_types):
+        for i in range(1,n[l]+1):
+            for j in range(1,m[l]+1):
+                s=z[l,i,j,k]
+    for u in range(1,T-dmax+2):
+        for v in range(u+dmin,u+dmax):
+            if k >= u and k <= v:
+                p=ouv[u,v]
+    modell.addConstr( p+s >= r[k-1], name="constraint 8")             
+                    
+#Time limit
+modell.params.timelimit= tl
+
+# Solve
+modell.optimize()
